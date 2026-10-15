@@ -119,9 +119,14 @@ jobs:
     # Forks: replace benalloway/forge with <owner>/forge (and set FORGE_REPO for the vendor script).
     uses: benalloway/forge/.github/workflows/forge.yml@v1
     with:
+      # Dispatch inputs forwarded with safe fallbacks (label events carry no
+      # inputs, so `||` keeps defaults). NEVER leave `with:` comment-only —
+      # GitHub rejects an empty mapping and dispatch fails with HTTP 422.
+      max_iterations: ${{ inputs.max_iterations || '5' }}
+      delivery: ${{ inputs.delivery || 'pr' }}
+      # delivery: ${{ inputs.delivery || 'push' }}  # ONLY for repos with green CI + branch protection
       # label: Sandcastle        # uncomment while migrating from Sandcastle
       # base_branch: master      # uncomment if your trunk is not `main`
-      # delivery: push           # uncomment ONLY for repos with green CI + branch protection (default pr)
       # verify_command: "make verify"
       # setup_command: "go mod download"
     secrets:
