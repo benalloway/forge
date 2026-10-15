@@ -1,0 +1,177 @@
+name: Forge (reusable)
+
+# Consumers do NOT copy this file. They add a ~20-line wrapper
+# `.github/workflows/forge.yml` that calls it (see docs/INSTALL.md).
+# Deliberately stack-agnostic: no deploy step — pushing to `main` triggers the
+# consumer's own CI, which owns deploys.
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: "Issue label marking the factory backlog"
+        required: false
+        default: "Forge"
+        type: string
+      branch_prefix:
+        description: "Branch prefix for per-issue work (<prefix>/issue-<id>)"
+        required: false
+        default: "forge"
+        type: string
+      model:
+        description: "OpenCode model ID"
+        required: false
+        default: "opencode/muse-spark-1.3-contributor-free"
+        type: string
+      max_iterations:
+        description: "Maximum plan -> execute -> merge cycles"
+        required: false
+        default: "5"
+        type: string
+      delivery:
+        description: "How to deliver merged commits: push (direct to main) or pr (open a pull request)"
+        required: false
+        default: "push"
+        type: string
+      node_version:
+        description: "Node version for the runner (Forge itself needs Node; your repo can be any stack)"
+        required: false
+        default: "24"
+        type: string
+      verify_command:
+        description: "Gate run before delivery (your stack's check)"
+        required: false
+        default: "npm run check && npm run build"
+        type: string
+      setup_command:
+        description: "Per-worktree setup (your stack's install)"
+        required: false
+        default: "[ -d node_modules ] || npm install --prefer-offline --no-audit --no-fund"
+        type: string
+      standards_file:
+        description: "Reviewer standards file in the consumer repo"
+        required: false
+        default: ".sandcastle/CODING_STANDARDS.md"
+        type: string
+    secrets:
+      opencode_api_key:
+        description: "OpenCode API key for agent runs"
+        required: true
+      gh_token:
+        description: "GitHub token (PAT recommended: pushes trigger downstream CI, and PR mode needs PR-create permission)"
+        required: true
+
+concurrency:
+  group: forge-factory-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  forge:
+    name: forge (AFK factory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OPENCODE_API_KEY: ${{ secrets.opencode_api_key }}
+      GH_TOKEN: ${{ secrets.gh_token }}
+      FORGE_SANDBOX: local
+      FORGE_MODEL: ${{ inputs.model }}
+      FORGE_MAX_ITERATIONS: ${{ inputs.max_iterations }}
+      FORGE_LABEL: ${{ inputs.label }}
+      FORGE_BRANCH_PREFIX: ${{ inputs.branch_prefix }}
+      FORGE_STANDARDS_FILE: ${{ inputs.standards_file }}
+      FORGE_SETUP_COMMAND: ${{ inputs.setup_command }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.gh_token }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install runner dependencies
+        run: npm ci --prefix .forge
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Record starting commit
+        id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Forge AFK factory
+        run: ./.forge/node_modules/.bin/tsx ./.forge/main.ts
+
+      - name: Verify and deliver commits
+        id: deliver
+        env:
+          DELIVERY: ${{ inputs.delivery }}
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          VERIFY_COMMAND: ${{ inputs.verify_command }}
+        run: |
+          case "${DELIVERY}" in
+            push|pr) ;;
+            *) echo "::error::delivery must be 'push' or 'pr' (got '${DELIVERY}')."; exit 1;;
+          esac
+          NEW_COMMITS=$(git rev-list --count "${BASE_SHA}..HEAD")
+          echo "new_commits=${NEW_COMMITS}" >> "$GITHUB_OUTPUT"
+          if [ "${NEW_COMMITS}" -eq 0 ]; then
+            echo "No new commits produced by Forge."
+            exit 0
+          fi
+
+          sh -c "$VERIFY_COMMAND"
+
+          # Issue IDs recorded by the merger (one per line). Issues are closed
+          # only after delivery succeeds — never before.
+          ISSUES_FILE=".sandcastle/delivered-issues.txt"
+
+          if [ "${DELIVERY}" = "pr" ]; then
+            BRANCH="forge/run-${GITHUB_RUN_ID}"
+            git checkout -b "${BRANCH}"
+            git push -u origin "${BRANCH}"
+            PR_BODY="Automated Forge run (#${GITHUB_RUN_ID}) merged ${NEW_COMMITS} commit(s)."
+            if [ -f "${ISSUES_FILE}" ]; then
+              while read -r ISSUE; do
+                [ -n "${ISSUE}" ] || continue
+                PR_BODY="${PR_BODY}"$'\n'"Closes #${ISSUE}."
+              done < "${ISSUES_FILE}"
+            fi
+            if ! gh pr create \
+              --base main \
+              --head "${BRANCH}" \
+              --title "chore(forge): automated issue run #${GITHUB_RUN_NUMBER}" \
+              --body "${PR_BODY}"; then
+              echo "::error::gh pr create failed. Either enable 'Allow GitHub Actions to create and approve pull requests' (repo Settings > Actions > General) or pass a FORGE_GH_TOKEN PAT secret (Contents/Issues/Pull requests RW). Branch ${BRANCH} was pushed; create the PR manually. Issues were left open for retry."
+              exit 1
+            fi
+            PR_URL="$(gh pr view "${BRANCH}" --json url --jq .url)"
+            if [ -f "${ISSUES_FILE}" ]; then
+              while read -r ISSUE; do
+                [ -n "${ISSUE}" ] || continue
+                gh issue comment "${ISSUE}" --body "Delivered for review in ${PR_URL} by Forge run #${GITHUB_RUN_ID}. It closes automatically on merge."
+              done < "${ISSUES_FILE}"
+            fi
+          else
+            git pull --rebase origin main
+            git push origin HEAD:main
+            HEAD_SHA="$(git rev-parse HEAD)"
+            if [ -f "${ISSUES_FILE}" ]; then
+              while read -r ISSUE; do
+                [ -n "${ISSUE}" ] || continue
+                gh issue close "${ISSUE}" --comment "Completed by Forge (delivered to main in ${HEAD_SHA})."
+              done < "${ISSUES_FILE}"
+            fi
+          fi
+
+      - name: Upload Forge logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-logs-${{ github.run_id }}
+          path: .sandcastle/logs/
+          if-no-files-found: ignore
+          retention-days: 14
