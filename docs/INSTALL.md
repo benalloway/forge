@@ -49,7 +49,8 @@ done
 ```
 
 If the repo migrates from Sandcastle, keep its `Sandcastle` label and pass
-`label: Sandcastle` in the wrapper until re-labeling (Step 5).
+`label: Sandcastle` in the wrapper until you re-label those issues to `Forge`
+and drop the override.
 
 ## 2. Fetch the vendor script and vendor the runner
 
@@ -95,7 +96,7 @@ on:
       delivery:
         description: "How to deliver merged commits"
         required: false
-        default: "push"
+        default: "pr"
         type: choice
         options:
           - push
@@ -114,6 +115,7 @@ permissions:
 
 jobs:
   forge:
+    # Forks: replace benalloway/forge with <owner>/forge (and set FORGE_REPO for the vendor script).
     uses: benalloway/forge/.github/workflows/forge.yml@v1
     with:
       # label: Sandcastle        # uncomment while migrating from Sandcastle
