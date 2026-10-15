@@ -32,6 +32,7 @@ below already exist.
 
 ```sh
 R=<owner>/<repo>
+EXISTING="$(gh label list --repo "$R" --limit 100 --json name --jq '.[].name')"
 for spec in \
   "Forge:F9A825:Issues for Forge to work on" \
   "needs-triage:FBCA04:Needs triage before planning" \
@@ -42,7 +43,7 @@ for spec in \
   "bug:D73A4A:Something is broken" \
   "enhancement:A2EEEF:New feature or improvement"; do
   name="${spec%%:*}"; rest="${spec#*:}"; color="${rest%%:*}"; desc="${rest#*:}"
-  gh label list --repo "$R" --limit 100 --json name --jq -e ".[].name | select(. == \"$name\")" >/dev/null \
+  echo "$EXISTING" | grep -Fxq "$name" \
     && echo "exists: $name" \
     || gh label create "$name" --repo "$R" --color "$color" --description "$desc"
 done
