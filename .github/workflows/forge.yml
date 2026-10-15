@@ -170,9 +170,9 @@ jobs:
             if ! gh pr create \
               --base "$BASE_BRANCH" \
               --head "${BRANCH}" \
-              --title "chore(forge): automated issue run #${GITHUB_RUN_NUMBER}" \
+              --title "chore(forge): automated delivery for $(awk NF "${ISSUES_FILE}" | sed 's/^/#/' | paste -sd' ' -)" \
               --body "${PR_BODY}"; then
-              echo "::error::gh pr create failed. Either enable 'Allow GitHub Actions to create and approve pull requests' (repo Settings > Actions > General) or pass a FORGE_GH_TOKEN PAT secret (Contents/Issues/Pull requests RW). Branch ${BRANCH} was pushed; create the PR manually. Issues were left open for retry."
+              echo "::error::gh pr create failed. Either enable 'Allow GitHub Actions to create and approve pull requests' (repo Settings > Actions > General) or set FORGE_GH_TOKEN to a classic PAT (repo + workflow scopes). Branch ${BRANCH} was pushed; create the PR manually. Issues were left open for retry."
               exit 1
             fi
             PR_URL="$(gh pr view "${BRANCH}" --json url --jq .url)"
