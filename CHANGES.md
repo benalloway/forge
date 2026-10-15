@@ -13,7 +13,11 @@ reusable workflow (`.github/workflows/forge.yml`), vendor script
 Fixed the premature issue-close bug (issues now close only after delivery
 succeeds) and hardened `delivery=pr` (clear permission error, `Closes #…` in
 PR body, issues stay open on failure). No deploy step in the factory — pushing
-to `main` triggers the consumer's own CI, which owns deploys.
+to `main` triggers the consumer's own CI, which owns deploys. Amended pre-
+adoption: `base_branch` input (trunk is no longer assumed `main`),
+`opencode_version` input (CLI pinned, never floats), generic direct-provider
+model keys (`anthropic/openai/gemini` optional secrets + `FORGE_FORWARD_ENV`
+passthrough).
 
 Consumer impact: New installs via `docs/INSTALL.md`. Migrating Sandcastle
 repos pass `label: Sandcastle` (+ existing `SANDCASTLE_*` env keeps working as

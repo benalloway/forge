@@ -15,6 +15,8 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 | `max_iterations` | `5` | Plan → execute → merge cycles per run. |
 | `delivery` | `push` | `push` (direct to `main`) or `pr` (open a review PR). |
 | `node_version` | `24` | Node for the runner only — your repo can be any stack. |
+| `base_branch` | `main` | Trunk the factory merges into and delivers to. Set for repos on `master`/`develop`/etc. |
+| `opencode_version` | `1.18.34` | Pinned CLI (never floats). Bump deliberately after testing a new release. |
 | `verify_command` | `npm run check && npm run build` | **Required for non-Node repos.** Your stack's gate (e.g. `cargo test`, `go test ./...`, `make verify`). Runs before any delivery. |
 | `setup_command` | `[ -d node_modules ] \|\| npm install …` | **Required for non-Node repos.** Per-worktree setup (e.g. `cargo fetch`, `go mod download`, `pip install -r requirements.txt`). |
 | `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Any path; missing file falls back to `AGENTS.md`. |
@@ -34,6 +36,20 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 | `FORGE_PROMPTS_DIR` | `<runner>/prompts/` | Fork prompts per repo only as a last resort — prefer improving upstream. |
 | `OPENCODE_API_KEY` | — | Required (or `opencode auth login` locally; repo/org secret in Actions). |
 | `GH_TOKEN` / `GITHUB_TOKEN` | — | `gh` auth. A PAT (`FORGE_GH_TOKEN`) is recommended: pushes trigger downstream CI and PR mode works. |
+| `FORGE_FORWARD_ENV` | — | Comma-separated env names forwarded into agent sandboxes (values never logged). The workflow sets `ANTHROPIC_API_KEY,OPENAI_API_KEY,GEMINI_API_KEY` by default; extend locally for other providers. |
+
+## Model providers
+
+The agent runtime is OpenCode, so **any provider OpenCode routes works via
+the `model` input** (e.g. `opencode/<slug>`, `anthropic/<model>`,
+`openai/<model>`) — no Forge changes needed. Authentication has two paths:
+
+1. **OpenCode Zen (default):** `OPENCODE_API_KEY` covers everything. Nothing
+   else to set.
+2. **Direct provider keys:** pass the provider secret (`anthropic_api_key`,
+   `openai_api_key`, `gemini_api_key` workflow secrets — all optional) and
+   address the model directly. Keys reach agents exclusively through
+   `FORGE_FORWARD_ENV` forwarding, never through logs or prompts.
 
 ## Non-Node repos
 

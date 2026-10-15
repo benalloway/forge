@@ -92,6 +92,19 @@ function createSandboxProvider(): sandcastle.SandboxProvider {
       forwardedEnv[key] = value;
     }
   }
+  // Generic provider-token passthrough: comma-separated env names whose values
+  // (if present) are forwarded so agents can use direct model-provider keys.
+  // Never logged. Example: FORGE_FORWARD_ENV="ANTHROPIC_API_KEY,OPENAI_API_KEY".
+  const forwardList = (process.env.FORGE_FORWARD_ENV ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  for (const name of forwardList) {
+    const value = process.env[name];
+    if (value !== undefined) {
+      forwardedEnv[name] = value;
+    }
+  }
   if (process.env.GITHUB_ACTIONS) {
     forwardedEnv.GITHUB_ACTIONS = process.env.GITHUB_ACTIONS;
   }

@@ -2,8 +2,8 @@ name: Forge (reusable)
 
 # Consumers do NOT copy this file. They add a ~20-line wrapper
 # `.github/workflows/forge.yml` that calls it (see docs/INSTALL.md).
-# Deliberately stack-agnostic: no deploy step — pushing to `main` triggers the
-# consumer's own CI, which owns deploys.
+# Deliberately stack-agnostic: no deploy step — pushing to the base branch
+# triggers the consumer's own CI, which owns deploys.
 
 on:
   workflow_call:
@@ -38,6 +38,16 @@ on:
         required: false
         default: "24"
         type: string
+      base_branch:
+        description: "Branch the factory merges into and delivers to (your trunk)"
+        required: false
+        default: "main"
+        type: string
+      opencode_version:
+        description: "Pinned opencode-ai CLI version (never floats; bump deliberately)"
+        required: false
+        default: "1.18.34"
+        type: string
       verify_command:
         description: "Gate run before delivery (your stack's check)"
         required: false
@@ -60,6 +70,15 @@ on:
       gh_token:
         description: "GitHub token (PAT recommended: pushes trigger downstream CI, and PR mode needs PR-create permission)"
         required: true
+      anthropic_api_key:
+        description: "Optional direct provider key (used when model IDs address the provider directly instead of OpenCode Zen)"
+        required: false
+      openai_api_key:
+        description: "Optional direct provider key (see above)"
+        required: false
+      gemini_api_key:
+        description: "Optional direct provider key (see above)"
+        required: false
 
 concurrency:
   group: forge-factory-${{ github.repository }}
@@ -73,6 +92,10 @@ jobs:
     env:
       OPENCODE_API_KEY: ${{ secrets.opencode_api_key }}
       GH_TOKEN: ${{ secrets.gh_token }}
+      ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+      OPENAI_API_KEY: ${{ secrets.openai_api_key }}
+      GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
+      FORGE_FORWARD_ENV: "ANTHROPIC_API_KEY,OPENAI_API_KEY,GEMINI_API_KEY"
       FORGE_SANDBOX: local
       FORGE_MODEL: ${{ inputs.model }}
       FORGE_MAX_ITERATIONS: ${{ inputs.max_iterations }}
@@ -93,6 +116,9 @@ jobs:
       - name: Install runner dependencies
         run: npm ci --prefix .forge
 
+      - name: Install OpenCode CLI (pinned)
+        run: npm install -g opencode-ai@${{ inputs.opencode_version }}
+
       - name: Configure git identity
         run: |
           git config --global user.name "github-actions[bot]"
@@ -109,6 +135,7 @@ jobs:
         id: deliver
         env:
           DELIVERY: ${{ inputs.delivery }}
+          BASE_BRANCH: ${{ inputs.base_branch }}
           BASE_SHA: ${{ steps.base.outputs.sha }}
           VERIFY_COMMAND: ${{ inputs.verify_command }}
         run: |
@@ -141,7 +168,7 @@ jobs:
               done < "${ISSUES_FILE}"
             fi
             if ! gh pr create \
-              --base main \
+              --base "$BASE_BRANCH" \
               --head "${BRANCH}" \
               --title "chore(forge): automated issue run #${GITHUB_RUN_NUMBER}" \
               --body "${PR_BODY}"; then
@@ -156,13 +183,13 @@ jobs:
               done < "${ISSUES_FILE}"
             fi
           else
-            git pull --rebase origin main
-            git push origin HEAD:main
+            git pull --rebase origin "$BASE_BRANCH"
+            git push origin "HEAD:${BASE_BRANCH}"
             HEAD_SHA="$(git rev-parse HEAD)"
             if [ -f "${ISSUES_FILE}" ]; then
               while read -r ISSUE; do
                 [ -n "${ISSUE}" ] || continue
-                gh issue close "${ISSUE}" --comment "Completed by Forge (delivered to main in ${HEAD_SHA})."
+                gh issue close "${ISSUE}" --comment "Completed by Forge (delivered to ${BASE_BRANCH} in ${HEAD_SHA})."
               done < "${ISSUES_FILE}"
             fi
           fi

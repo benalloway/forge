@@ -116,11 +116,13 @@ jobs:
     uses: benalloway/forge/.github/workflows/forge.yml@v1
     with:
       # label: Sandcastle        # uncomment while migrating from Sandcastle
+      # base_branch: master      # uncomment if your trunk is not `main`
       # verify_command: "make verify"
       # setup_command: "go mod download"
     secrets:
       opencode_api_key: ${{ secrets.OPENCODE_API_KEY }}
       gh_token: ${{ secrets.FORGE_GH_TOKEN || secrets.GITHUB_TOKEN }}
+      # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}  # only for direct-provider models
 ```
 
 Notes the agent must convey in its final summary:
@@ -180,6 +182,9 @@ to the human instead (repository or organization secrets):
   (Settings → Actions → General), and (b) its pushes do NOT trigger
   downstream workflows (so CI deploys would not fire after a factory push).
   Organization secret preferred — set once, every repo inherits it.
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` — optional, only
+  for direct-provider models (OpenCode Zen via `OPENCODE_API_KEY` needs none
+  of these). See `docs/CONFIGURATION.md` → Model providers.
 - Deploy secrets (e.g. Cloudflare tokens) stay in the consumer repo as
   before; Forge never touches deploys (push to `main` triggers consumer CI).
 
