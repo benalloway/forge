@@ -34,3 +34,8 @@ mkdir -p .forge
 cp -r "$SRC"/. .forge/
 echo "$REF" > "$PIN_FILE"
 echo "Vendored Forge ${REF} into .forge/ (pin: ${PIN_FILE})"
+
+# Install runner deps so `npm run forge` works immediately (mirrors the
+# `npm ci --prefix .forge` step in the reusable workflow). node_modules is
+# gitignored; re-run this script to refresh after a re-vendor.
+npm ci --prefix .forge --no-audit --no-fund
