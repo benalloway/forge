@@ -113,7 +113,6 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
-  workflows: write
 
 jobs:
   forge:
@@ -144,12 +143,15 @@ Notes the agent must convey in its final summary:
   their own). `contents: write` lets the factory push; `issues: write` lets
   it close/comment; `pull-requests: write` is needed for `delivery: pr` from
   `GITHUB_TOKEN` — without it (or a PAT), PR creation fails while the branch
-  is still pushed (issues stay open for retry by design). `workflows: write`
-  is REQUIRED, not optional: factory branches routinely contain
-  `.github/workflows/` changes (agents legitimately edit the wrapper), and
-  GitHub refuses any push that creates/updates workflow files without it —
-  `refusing to allow a GitHub App to create or update workflow ... without
-  'workflows' permission`.
+  is still pushed (issues stay open for retry by design).
+- Factory branches WILL touch `.github/workflows/` (agents legitimately edit
+  the wrapper — proven on the first real run). GitHub refuses pushes that
+  create/update workflow files from `GITHUB_TOKEN` (`refusing to allow a
+  GitHub App ... without 'workflows' permission`), and `workflows` is NOT a
+  valid `GITHUB_TOKEN` scope (the wrapper 422s if you add it). Consequence:
+  `FORGE_GH_TOKEN` must be a **classic PAT with `repo` + `workflow` scopes**
+  (fine-grained PATs lack the workflow-file grant). With only `GITHUB_TOKEN`,
+  any run whose branch modifies a workflow file fails red at push.
 - Delivery defaults to `pr` (safe). Switch a repo to `push` only with green
   CI gating deploys plus branch protection — see `docs/COSTS.md` trust notes.
 - The `issues: [labeled]` trigger fires only when an issue gains the backlog
@@ -193,8 +195,12 @@ The agent MUST NOT create, read, or echo secret values. Output this checklist
 to the human instead (repository or organization secrets):
 
 - `OPENCODE_API_KEY` — required. Agent runtime key.
-- `FORGE_GH_TOKEN` — strongly recommended PAT (fine-grained: Contents RW,
-  Issues RW, Pull requests RW, Metadata R). Without it the factory falls back
+- `FORGE_GH_TOKEN` — required classic PAT (scopes `repo` + `workflow`;
+  use `public_repo` instead of `repo` if all consumers are public). Factory
+  branches touch `.github/workflows/`, which `GITHUB_TOKEN` can never push
+  (no such scope) — without this PAT those runs fail red at delivery. With
+  the PAT, pushes trigger downstream workflows and PR creation never depends
+  on the repo setting below. Without it the factory falls back
   to `GITHUB_TOKEN`, which (a) cannot open PRs unless the repo enables
   “Allow GitHub Actions to create and approve pull requests”
   (Settings → Actions → General), and (b) its pushes do NOT trigger
@@ -234,7 +240,7 @@ repo over.
 | Symptom | Cause → fix |
 |---|---|
 | `gh pr create failed` in Verify | PR permission (see Step 4 notes). Branch is pushed and issues stay open — create the PR manually (`gh pr create --base main --head <branch>`) or add the PAT/setting and re-run. |
-| `remote rejected ... without 'workflows' permission` on push | Wrapper lacks `workflows: write` (Step 4). Add it, push the wrapper, dispatch a fresh run (not a rerun — reruns reuse the old wrapper). |
+| `remote rejected ... without 'workflows' permission` on push | `GITHUB_TOKEN` cannot push workflow-file changes (no such scope — do NOT add `workflows: write` to the wrapper, it 422s). Set `FORGE_GH_TOKEN` to a classic PAT (`repo` + `workflow` scopes) and dispatch a fresh run (not a rerun). |
 | Issue closed but nothing on the base branch | Pre-v1 bug (merger closed before push). Reopen the issue and re-run; v1+ closes only after delivery. |
 | Second run says “No unblocked issues” but work is missing | Same as above — check whether the previous run actually delivered before its close. |
 | `tsx: command not found` locally | `npm i -D tsx` in the consumer, or use `npx --yes tsx`. |
