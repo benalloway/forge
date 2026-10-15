@@ -113,6 +113,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  workflows: write
 
 jobs:
   forge:
@@ -143,7 +144,12 @@ Notes the agent must convey in its final summary:
   their own). `contents: write` lets the factory push; `issues: write` lets
   it close/comment; `pull-requests: write` is needed for `delivery: pr` from
   `GITHUB_TOKEN` — without it (or a PAT), PR creation fails while the branch
-  is still pushed (issues stay open for retry by design).
+  is still pushed (issues stay open for retry by design). `workflows: write`
+  is REQUIRED, not optional: factory branches routinely contain
+  `.github/workflows/` changes (agents legitimately edit the wrapper), and
+  GitHub refuses any push that creates/updates workflow files without it —
+  `refusing to allow a GitHub App to create or update workflow ... without
+  'workflows' permission`.
 - Delivery defaults to `pr` (safe). Switch a repo to `push` only with green
   CI gating deploys plus branch protection — see `docs/COSTS.md` trust notes.
 - The `issues: [labeled]` trigger fires only when an issue gains the backlog
@@ -228,6 +234,7 @@ repo over.
 | Symptom | Cause → fix |
 |---|---|
 | `gh pr create failed` in Verify | PR permission (see Step 4 notes). Branch is pushed and issues stay open — create the PR manually (`gh pr create --base main --head <branch>`) or add the PAT/setting and re-run. |
+| `remote rejected ... without 'workflows' permission` on push | Wrapper lacks `workflows: write` (Step 4). Add it, push the wrapper, dispatch a fresh run (not a rerun — reruns reuse the old wrapper). |
 | Issue closed but nothing on the base branch | Pre-v1 bug (merger closed before push). Reopen the issue and re-run; v1+ closes only after delivery. |
 | Second run says “No unblocked issues” but work is missing | Same as above — check whether the previous run actually delivered before its close. |
 | `tsx: command not found` locally | `npm i -D tsx` in the consumer, or use `npx --yes tsx`. |
