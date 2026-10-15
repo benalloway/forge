@@ -35,5 +35,5 @@ version. Treat every change here as a downstream release.
 ## Commands
 
 ```sh
-npm run check --prefix runner   # tsc --noEmit — feedback loop before every commit
+npm run check --prefix runner   # tsc --noEmit + prompt-placeholder coverage — feedback loop before every commit
 ```

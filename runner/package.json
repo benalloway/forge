@@ -2,10 +2,11 @@
   "name": "@benalloway/forge-runner",
   "version": "1.0.0",
   "private": true,
-  "description": "Forge AFK issue factory runner (vendored into consumer repos via scripts/sync-forge.sh)",
+  "description": "Forge AFK issue factory runner (vendored into consumer repos via scripts/sync-forge.sh). Built on @ai-hero/sandcastle; MIT licensed.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit && node ../scripts/check-prompts.mjs"
   },
   "dependencies": {
     "@ai-hero/sandcastle": "^0.12.0",

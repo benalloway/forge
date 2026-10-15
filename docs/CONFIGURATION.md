@@ -13,7 +13,8 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 | `branch_prefix` | `forge` | Per-issue branches `<prefix>/issue-<id>`. Change only to avoid a collision. |
 | `model` | `opencode/muse-spark-1.3-contributor-free` | Any OpenCode model ID. |
 | `max_iterations` | `5` | Plan → execute → merge cycles per run. |
-| `delivery` | `push` | `push` (direct to `main`) or `pr` (open a review PR). |
+| `delivery` | `pr` | `pr` (review PR — the safe default) or `push` (direct to base branch, for repos with green CI + branch protection). |
+| `base_branch` | `main` | Trunk the factory merges into and delivers to. Set for repos on `master`/`develop`/etc. |
 | `node_version` | `24` | Node for the runner only — your repo can be any stack. |
 | `base_branch` | `main` | Trunk the factory merges into and delivers to. Set for repos on `master`/`develop`/etc. |
 | `opencode_version` | `1.18.34` | Pinned CLI (never floats). Bump deliberately after testing a new release. |
@@ -29,10 +30,12 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 | `FORGE_BRANCH_PREFIX` | `forge` | Same as `branch_prefix`. |
 | `FORGE_MODEL` | (see above) | Same as `model`. |
 | `FORGE_MAX_ITERATIONS` | `10` | Local default is higher; the workflow passes `5`. |
+| `FORGE_IMPLEMENT_MAX_ITERATIONS` | `100` | Per-issue implementer cap — the dominant cost lever (see `docs/COSTS.md`). |
 | `FORGE_SANDBOX` | `local` | `local` (git worktrees, no Docker) · `docker` · `podman`. |
 | `FORGE_STANDARDS_FILE` | `.sandcastle/CODING_STANDARDS.md` | Same as `standards_file`. |
 | `FORGE_DELIVERED_FILE` | `.sandcastle/delivered-issues.txt` | Merger → workflow handoff. Gitignored; never commit it. |
 | `FORGE_SETUP_COMMAND` | (node default above) | Same as `setup_command`. |
+| `FORGE_REPO` | `benalloway/forge` | Upstream repo for the vendor script. Forks set this to their own repo and `sync-forge.sh` + these docs follow. |
 | `FORGE_PROMPTS_DIR` | `<runner>/prompts/` | Fork prompts per repo only as a last resort — prefer improving upstream. |
 | `OPENCODE_API_KEY` | — | Required (or `opencode auth login` locally; repo/org secret in Actions). |
 | `GH_TOKEN` / `GITHUB_TOKEN` | — | `gh` auth. A PAT (`FORGE_GH_TOKEN`) is recommended: pushes trigger downstream CI and PR mode works. |

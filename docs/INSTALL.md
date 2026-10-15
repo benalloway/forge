@@ -56,7 +56,8 @@ If the repo migrates from Sandcastle, keep its `Sandcastle` label and pass
 ```sh
 cd <repo> && mkdir -p scripts .forge
 REF="v1"  # or the human-named tag
-gh api "repos/benalloway/forge/contents/scripts/sync-forge.sh?ref=${REF}" \
+# Forks: export FORGE_REPO=<owner>/<repo> first — the fetch and vendor follow it.
+gh api "repos/${FORGE_REPO:-benalloway/forge}/contents/scripts/sync-forge.sh?ref=${REF}" \
   --jq .content | base64 -d > scripts/sync-forge.sh
 bash scripts/sync-forge.sh "$REF"
 git status --short  # expect: scripts/sync-forge.sh, scripts/forge-version.txt, .forge/
@@ -117,6 +118,7 @@ jobs:
     with:
       # label: Sandcastle        # uncomment while migrating from Sandcastle
       # base_branch: master      # uncomment if your trunk is not `main`
+      # delivery: push           # uncomment ONLY for repos with green CI + branch protection (default pr)
       # verify_command: "make verify"
       # setup_command: "go mod download"
     secrets:
@@ -134,6 +136,8 @@ Notes the agent must convey in its final summary:
   it close/comment; `pull-requests: write` is needed for `delivery: pr` from
   `GITHUB_TOKEN` — without it (or a PAT), PR creation fails while the branch
   is still pushed (issues stay open for retry by design).
+- Delivery defaults to `pr` (safe). Switch a repo to `push` only with green
+  CI gating deploys plus branch protection — see `docs/COSTS.md` trust notes.
 - The `issues: [labeled]` trigger fires only when an issue gains the backlog
   label AND already carries `ready-for-agent` (or vice versa); the reusable
   workflow re-checks both.
@@ -216,7 +220,7 @@ repo over.
 | Symptom | Cause → fix |
 |---|---|
 | `gh pr create failed` in Verify | PR permission (see Step 4 notes). Branch is pushed and issues stay open — create the PR manually (`gh pr create --base main --head <branch>`) or add the PAT/setting and re-run. |
-| Issue closed but nothing on `main` | Pre-v1 bug (merger closed before push). Reopen the issue and re-run; v1+ closes only after delivery. |
+| Issue closed but nothing on the base branch | Pre-v1 bug (merger closed before push). Reopen the issue and re-run; v1+ closes only after delivery. |
 | Second run says “No unblocked issues” but work is missing | Same as above — check whether the previous run actually delivered before its close. |
 | `tsx: command not found` locally | `npm i -D tsx` in the consumer, or use `npx --yes tsx`. |
 | Slow first GH run | `npm ci` in `.forge/` + model queue; subsequent runs reuse caches. Free-tier models can queue several minutes. |

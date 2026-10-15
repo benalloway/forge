@@ -3,9 +3,21 @@
 Run GitHub issues to completion while you sleep: a **planner** picks unblocked
 work, **implementers** build each issue in an isolated git worktree,
 a **reviewer** refines each branch, and a **merger** merges everything back and
-hands off for delivery. Generic across repos and stacks — the only thing Forge
-assumes is **git + GitHub issues**; verify commands, standards, labels, and
-deploys are all consumer-configured with sane defaults.
+hands off for delivery.
+
+Lineage: Forge is an opinionated distribution built on
+[`@ai-hero/sandcastle`](https://github.com/mattpocock/sandcastle) (the agent
+orchestration library: sandboxes, worktrees, agent loop) — the runner,
+delivery guarantees (close-only-after-delivery), versioned distribution, and
+agent-executable install docs are Forge's own. MIT licensed; see `LICENSE`.
+
+Forge is generic across **GitHub** repos — the only tracker it speaks is
+GitHub issues, the only CI it targets is GitHub Actions. Stack-wise it is
+**Node-first, designed for others**: proven on Astro/Node (typecheck + build
+gates), with `verify_command` / `setup_command` hooks for any other stack
+(first non-Node pilot still pending — see `docs/COSTS.md` for the honesty
+section on cost and trust). The only things Forge assumes are **git + GitHub
+issues**; labels, branches, models, and deploys are consumer-configured.
 
 ```
 issue (needs-triage) → triage → ready-for-agent + <backlog-label>
@@ -43,6 +55,19 @@ Details: [`docs/INSTALL.md`](./docs/INSTALL.md) (agent-executable install),
   own CI, which owns deploys.
 - `scripts/sync-forge.sh` — vendor script (mirrors the `@benalloway/ui`
   `ui:sync` pattern): copies `runner/` at a pinned tag.
+
+## Trust model (read before your first run)
+
+Forge runs agents with full tool permissions (`OPENCODE_PERMISSION: * allow`
++ non-interactive auto-approve) and, in `push` delivery, lands commits
+straight onto your trunk. That is the AFK dream and also a loaded footgun:
+
+- **New adopters: start with `delivery: pr`.** It is the default. Review the
+  branch, merge when happy, issues close on merge.
+- **Unattended `push` is opt-in** (`delivery: push` in the wrapper) for repos
+  with green CI, branch protection, and owners who accept auto-deploy.
+- **Know your spend.** See `docs/COSTS.md` for caps and how to bound a run
+  before you walk away.
 
 ## What Forge needs from a consumer repo
 

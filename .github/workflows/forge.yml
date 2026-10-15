@@ -29,9 +29,9 @@ on:
         default: "5"
         type: string
       delivery:
-        description: "How to deliver merged commits: push (direct to main) or pr (open a pull request)"
+        description: "How to deliver merged commits: pr (open a pull request — the safe default) or push (direct to the base branch, for repos with green CI + branch protection)"
         required: false
-        default: "push"
+        default: "pr"
         type: string
       node_version:
         description: "Node version for the runner (Forge itself needs Node; your repo can be any stack)"

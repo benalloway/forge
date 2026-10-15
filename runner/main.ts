@@ -52,6 +52,16 @@ const MODEL = env("MODEL", "opencode/muse-spark-1.3-contributor-free");
 
 const MAX_ITERATIONS = Number.parseInt(env("MAX_ITERATIONS", "10"), 10);
 
+/**
+ * Per-issue implementer iteration cap. The dominant cost lever: each
+ * iteration is agentic work against the model. Lower for cheap models and
+ * tight budgets; see docs/COSTS.md.
+ */
+const IMPLEMENT_MAX_ITERATIONS = Number.parseInt(
+  env("IMPLEMENT_MAX_ITERATIONS", "100"),
+  10,
+);
+
 /** GitHub issue label marking the factory backlog (default triage: `Forge`). */
 const LABEL = env("LABEL", "Forge");
 
@@ -214,7 +224,7 @@ const headHooks: sandcastle.SandboxHooks = isContainerSandbox
 const copyToWorktree = ["node_modules"];
 
 console.log(
-  `Forge starting (sandbox=${SANDBOX_MODE}, model=${MODEL}, maxIterations=${MAX_ITERATIONS}, label=${LABEL}, branchPrefix=${BRANCH_PREFIX})`,
+  `Forge starting (sandbox=${SANDBOX_MODE}, model=${MODEL}, maxIterations=${MAX_ITERATIONS}, implementMax=${IMPLEMENT_MAX_ITERATIONS}, label=${LABEL}, branchPrefix=${BRANCH_PREFIX})`,
 );
 
 // ---------------------------------------------------------------------------
@@ -280,7 +290,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       try {
         const implement = await sandbox.run({
           name: `implementer-${issue.id}`,
-          maxIterations: 100,
+          maxIterations: IMPLEMENT_MAX_ITERATIONS,
           agent: createAgent(),
           promptFile: promptFile("implement-prompt.md"),
           promptArgs: {
