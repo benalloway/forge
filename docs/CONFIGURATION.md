@@ -22,6 +22,20 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 | `setup_command` | `[ -d node_modules ] \|\| npm install …` | **Required for non-Node repos.** Per-worktree setup (e.g. `cargo fetch`, `go mod download`, `pip install -r requirements.txt`). |
 | `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Any path; missing file falls back to `AGENTS.md`. |
 
+## Review workflow inputs (`.github/workflows/review.yml` → `benalloway/forge`)
+
+| Input | Default | When to change |
+|---|---|---|
+| `model` | `opencode/muse-spark-1.3-contributor-free` | Any OpenCode model ID. |
+| `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Missing file falls back to `AGENTS.md`. |
+| `prompt_file` | `.forge/prompts/pr-review-prompt.md` | Fork the prompt per repo only as a last resort — prefer improving upstream (it re-vendors via `sync-forge.sh`). |
+| `node_version` | `24` | Node for the runner only. |
+| `opencode_version` | `1.18.34` | Pinned CLI (never floats). Bump deliberately. |
+
+Secrets: `opencode_api_key` (required), `gh_token` (required, but
+`GITHUB_TOKEN` suffices — the review only reads the PR and posts a comment,
+never pushes). The agent step receives no GitHub token at all.
+
 ## Environment (`FORGE_*`)
 
 | Variable | Default | Notes |
@@ -67,3 +81,8 @@ The planner excludes `needs-triage`, `needs-info`, `ready-for-human`,
 `wontfix` by default and works on the rest of the backlog label. Keep this
 vocabulary in consumers; changing it requires forking `plan-prompt.md`
 (`FORGE_PROMPTS_DIR`), which is intentionally the only non-knob in the system.
+
+Routing (`run:home` / `run:cloud`, default cloud) is a consumer-side
+convention, not a runner knob: the cloud `forge.yml` wrapper skips
+`run:home` via a job `if:` guard, and the home-server runner polls the
+`run:home` queue. See `scripts/setup-labels.sh` for the canonical set.

@@ -30,24 +30,27 @@ below already exist.
 
 ## 1. Create labels (skip any that already exist)
 
+Fetch the canonical label script at the pinned tag and run it (same
+`FORGE_REPO`/`REF` convention as Step 2 — forks set `FORGE_REPO` first).
+It creates the backlog label (`Forge`), the five triage roles, `bug` /
+`enhancement`, and the routing labels (`run:home` / `run:cloud`), skipping
+any that already exist:
+
 ```sh
 R=<owner>/<repo>
-EXISTING="$(gh label list --repo "$R" --limit 100 --json name --jq '.[].name')"
-for spec in \
-  "Forge:F9A825:Issues for Forge to work on" \
-  "needs-triage:FBCA04:Needs triage before planning" \
-  "needs-info:FEF2C0:Blocked on a question for the owner" \
-  "ready-for-agent:0E8A16:Fully specified, ready for an AFK agent" \
-  "ready-for-human:5319E7:Requires human implementation" \
-  "wontfix:E4E669:Decided not to do" \
-  "bug:D73A4A:Something is broken" \
-  "enhancement:A2EEEF:New feature or improvement"; do
-  name="${spec%%:*}"; rest="${spec#*:}"; color="${rest%%:*}"; desc="${rest#*:}"
-  echo "$EXISTING" | grep -Fxq "$name" \
-    && echo "exists: $name" \
-    || gh label create "$name" --repo "$R" --color "$color" --description "$desc"
-done
+REF="v1"  # or the human-named tag
+gh api "repos/${FORGE_REPO:-benalloway/forge}/contents/scripts/setup-labels.sh?ref=${REF}" \
+  --jq .content | base64 -d > /tmp/setup-labels.sh
+bash /tmp/setup-labels.sh --repo "$R"
 ```
+
+The canonical vocabulary (enforced with `--force` when a repo has drifted):
+
+| Label | Meaning |
+|---|---|
+| `Forge` | Backlog the planner reads |
+| `needs-triage` → `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix` | Triage state machine (+ `bug`/`enhancement`) |
+| `run:cloud` (default when absent) / `run:home` | Routing: cloud Actions vs home-server runner |
 
 If the repo migrates from Sandcastle, keep its `Sandcastle` label and pass
 `label: Sandcastle` in the wrapper until you re-label those issues to `Forge`
@@ -234,6 +237,57 @@ Open a small, well-specified issue, label it `needs-triage` + backlog label,
 triage it to `ready-for-agent`, and trigger the workflow. Watch one full
 cycle, then review the branch, merge path, and issue close before handing the
 repo over.
+
+## 9. Review on every PR (recommended)
+
+Add the thin wrapper `.github/workflows/review.yml` (same pin as
+`forge-version.txt` — bump together). The reusable workflow checks out the
+PR head, runs a read-only review agent (standards file + vendored
+`pr-review-prompt.md`), and posts one comment. It never pushes, so
+`GITHUB_TOKEN` suffices — no PAT required:
+
+```yaml
+name: Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: forge-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    # Forks: replace benalloway/forge with <owner>/forge.
+    uses: benalloway/forge/.github/workflows/review.yml@v1
+    with:
+      standards_file: .sandcastle/CODING_STANDARDS.md
+    secrets:
+      opencode_api_key: ${{ secrets.OPENCODE_API_KEY }}
+      gh_token: ${{ secrets.FORGE_GH_TOKEN || secrets.GITHUB_TOKEN }}
+```
+
+Notes the agent must convey in its final summary:
+
+- `permissions:` MUST live in this wrapper (reusable workflows cannot grant
+  their own). `contents: read` checks out the head; `issues: write` posts
+  the comment (`gh pr comment` uses the issues API); `pull-requests: write`
+  covers review metadata.
+- The agent runs with `--auto` (same posture as the factory) but receives
+  NO GitHub token and the workflow has no push step — a misbehaving run can
+  only waste minutes, never land code. PR title/body/diff are treated as
+  untrusted data in the prompt.
+- Verdicts are advisory (`APPROVE` / `COMMENT`) — the human merges. There
+  is no blocking gate; add branch protection + required `build` status for
+  the hard gate (consumer CI owns it).
+- Needs only `OPENCODE_API_KEY` as a secret (HUMAN step if missing — same
+  rule as Step 6: the agent never creates secret values).
 
 ## Troubleshooting
 

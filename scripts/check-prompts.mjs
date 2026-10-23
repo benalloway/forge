@@ -17,12 +17,15 @@ const promptsDir = join(
 // one; verified against its dist: BUILT_IN_PROMPT_ARG_KEYS).
 const BUILT_INS = new Set(["TARGET_BRANCH"]);
 
-// Must match the promptArgs in main.ts per prompt file.
+// Must match the promptArgs in main.ts per prompt file. Workflow-driven
+// prompts (not rendered by main.ts) map to an EMPTY set: they must stay
+// {{PLACEHOLDER}}-free and take all context via environment/files instead.
 const SUPPLIED = {
   "plan-prompt.md": new Set(["LABEL", "BRANCH_PREFIX"]),
   "implement-prompt.md": new Set(["TASK_ID", "ISSUE_TITLE", "BRANCH"]),
   "review-prompt.md": new Set(["BRANCH", "STANDARDS_FILE"]),
   "merge-prompt.md": new Set(["BRANCHES", "ISSUES", "DELIVERED_FILE"]),
+  "pr-review-prompt.md": new Set([]),
 };
 
 const PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;

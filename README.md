@@ -53,7 +53,10 @@ Details: [`docs/INSTALL.md`](./docs/INSTALL.md) (agent-executable install),
 - `.github/workflows/forge.yml` — reusable workflow (`workflow_call`) consumers
   wrap. No deploy step on purpose: pushing to `main` triggers the consumer's
   own CI, which owns deploys.
-- `scripts/sync-forge.sh` — vendor script (mirrors the `@benalloway/ui`
+- `.github/workflows/review.yml` — reusable read-only PR review: one advisory
+  comment per PR, never pushes (`GITHUB_TOKEN` suffices).
+- `scripts/setup-labels.sh` — canonical label vocabulary (backlog, triage
+  roles, routing), idempotent; `scripts/sync-forge.sh` — vendor script (mirrors the `@benalloway/ui`
   `ui:sync` pattern): copies `runner/` at a pinned tag.
 
 ## Trust model (read before your first run)

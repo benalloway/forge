@@ -1,0 +1,142 @@
+name: Forge PR review (reusable)
+
+# Consumers do NOT copy this file. They add a thin wrapper
+# `.github/workflows/review.yml` that calls it (see docs/INSTALL.md).
+# Read-only by design: the agent reviews and comments, never pushes.
+# Posting the comment is the only write, via the caller's gh_token.
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: "OpenCode model ID"
+        required: false
+        default: "opencode/muse-spark-1.3-contributor-free"
+        type: string
+      standards_file:
+        description: "Reviewer standards file in the consumer repo"
+        required: false
+        default: ".sandcastle/CODING_STANDARDS.md"
+        type: string
+      prompt_file:
+        description: "Review prompt (vendored with the runner)"
+        required: false
+        default: ".forge/prompts/pr-review-prompt.md"
+        type: string
+      node_version:
+        description: "Node version for the runner (review itself needs Node; your repo can be any stack)"
+        required: false
+        default: "24"
+        type: string
+      opencode_version:
+        description: "Pinned opencode-ai CLI version (never floats; bump deliberately)"
+        required: false
+        default: "1.18.34"
+        type: string
+    secrets:
+      opencode_api_key:
+        description: "OpenCode API key for the review run"
+        required: true
+      gh_token:
+        description: "GitHub token (used only to read the PR and post the review comment — GITHUB_TOKEN suffices)"
+        required: true
+
+jobs:
+  review:
+    name: review (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENCODE_API_KEY: ${{ secrets.opencode_api_key }}
+      # Deliberately NO GH_TOKEN here: the agent must not call the GitHub
+      # API (prompt-injection via PR title/body/diff stays inert).
+      # Same trust posture as the factory: full tool approval, but this
+      # workflow has no push/delivery step, so a misbehaving run can only
+      # waste minutes, never land code.
+      OPENCODE_PERMISSION: '{"*": "allow"}'
+      FORGE_MODEL: ${{ inputs.model }}
+      REVIEW_STANDARDS: ${{ inputs.standards_file }}
+      REVIEW_PROMPT: ${{ inputs.prompt_file }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.gh_token }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install OpenCode CLI (pinned)
+        run: npm install -g opencode-ai@${{ inputs.opencode_version }}
+
+      - name: Build review context
+        env:
+          GH_TOKEN: ${{ secrets.gh_token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          BASE_SHA="$(git merge-base HEAD "${{ github.event.pull_request.base.sha }}")"
+          {
+            echo "# PR #${PR_NUMBER} context"
+            echo
+            gh pr view "$PR_NUMBER" --json title,body,baseRefName,headRefName,url \
+              --jq '"## " + .title + "\n\n" + .url + " (" + .headRefName + " → " + .baseRefName + ")\n\n### Body\n\n" + (.body // "(empty)")'
+            echo
+            echo "### Diffstat (base $BASE_SHA → head $HEAD_SHA)"
+            echo
+            echo '```'
+            git diff --stat "$BASE_SHA" "$HEAD_SHA"
+            echo '```'
+          } > .forge-review-context.md
+          echo "REVIEW_BASE=$BASE_SHA" >> "$GITHUB_ENV"
+          echo "REVIEW_HEAD=$HEAD_SHA" >> "$GITHUB_ENV"
+          echo "REVIEW_CONTEXT=$PWD/.forge-review-context.md" >> "$GITHUB_ENV"
+          echo "REVIEW_OUTPUT=$PWD/.forge-review.md" >> "$GITHUB_ENV"
+          if [ ! -f "$REVIEW_STANDARDS" ]; then
+            for fallback in AGENTS.md CONTRIBUTING.md; do
+              if [ -f "$fallback" ]; then
+                echo "REVIEW_STANDARDS=$PWD/$fallback" >> "$GITHUB_ENV"
+                break
+              fi
+            done
+          else
+            echo "REVIEW_STANDARDS=$PWD/$REVIEW_STANDARDS" >> "$GITHUB_ENV"
+          fi
+          if [ ! -f "$REVIEW_PROMPT" ]; then
+            echo "::error::prompt $REVIEW_PROMPT missing — re-run bash scripts/sync-forge.sh to re-vendor."
+            exit 1
+          fi
+
+      - name: Run PR review agent
+        run: |
+          opencode run --auto \
+            --model "$FORGE_MODEL" \
+            --title "PR review #${{ github.event.pull_request.number }}" \
+            --file "$REVIEW_PROMPT" \
+            "Review the pull request per the attached prompt file. Context: $REVIEW_CONTEXT. Standards: $REVIEW_STANDARDS. Write findings to: $REVIEW_OUTPUT."
+
+      - name: Post review comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.gh_token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -s "$REVIEW_OUTPUT" ]; then
+            gh pr comment "$PR_NUMBER" --body-file "$REVIEW_OUTPUT"
+          else
+            echo "::error::agent produced no review output."
+            exit 1
+          fi
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-review-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: |
+            .forge-review.md
+            .forge-review-context.md
+          if-no-files-found: ignore
+          retention-days: 14
