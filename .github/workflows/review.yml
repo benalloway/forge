@@ -11,7 +11,7 @@ on:
       model:
         description: "OpenCode model ID"
         required: false
-        default: "opencode/claude-haiku-5-5"
+        default: "opencode-go/claude-haiku-5-5"
         type: string
       fallback_model:
         description: "Retry model when the primary fails (budget, retirement, transient)"
