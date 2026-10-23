@@ -87,6 +87,10 @@ jobs:
           bash .forge/build-review-context.sh
 
       - name: Run PR review agent
+        # NOTE: message FIRST, --file LAST. opencode 1.18.34 (yargs array)
+        # greedily consumes any positional after --file as an attachment
+        # path — verified against the pinned CLI. Any other order fails with
+        # `File not found: <the message>`.
         run: |
           : "${REVIEW_PROMPT:?review prompt not resolved}"
           : "${REVIEW_STANDARDS:?standards not resolved}"
@@ -95,8 +99,8 @@ jobs:
           opencode run --auto \
             --model "$FORGE_MODEL" \
             --title "PR review #${{ github.event.pull_request.number }}" \
-            --file "$REVIEW_PROMPT" \
-            "Review the pull request per the attached prompt file. Context: $REVIEW_CONTEXT. Standards: $REVIEW_STANDARDS. Write findings to: $REVIEW_OUTPUT."
+            "Review the pull request per the attached prompt file. Context: $REVIEW_CONTEXT. Standards: $REVIEW_STANDARDS. Write findings to: $REVIEW_OUTPUT." \
+            --file "$REVIEW_PROMPT"
 
       - name: Post review comment
         if: always()
