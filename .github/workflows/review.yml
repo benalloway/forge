@@ -86,11 +86,17 @@ jobs:
           REVIEW_STANDARDS_IN: ${{ inputs.standards_file }}
           REVIEW_PROMPT_IN: ${{ inputs.prompt_file }}
         run: |
-          if [ ! -f .forge/build-review-context.sh ]; then
-            echo "::error::.forge/build-review-context.sh missing — re-run bash scripts/sync-forge.sh to re-vendor."
+          # Self-hosting: on benalloway/forge itself there is no vendored
+          # .forge/ dir — the script runs from its source home runner/.
+          SCRIPT=.forge/build-review-context.sh
+          if [ ! -f "$SCRIPT" ] && [ -f runner/build-review-context.sh ]; then
+            SCRIPT=runner/build-review-context.sh
+          fi
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::error::$SCRIPT missing — consumers re-run bash scripts/sync-forge.sh to re-vendor."
             exit 1
           fi
-          bash .forge/build-review-context.sh
+          bash "$SCRIPT"
 
       - name: Run PR review agent
         # NOTE: message FIRST, --file LAST. opencode 1.18.34 (yargs array)
