@@ -301,4 +301,5 @@ Notes the agent must convey in its final summary:
 | Slow first GH run | `npm ci` in `.forge/` + model queue; subsequent runs reuse caches. Free-tier models can queue several minutes. |
 | Non-Node repo fails at Verify/setup | `verify_command` / `setup_command` not set — Step 0/4. The runner is Node; the repo need not be. |
 | Two factory runs overlapping | `concurrency: forge-factory` serializes them; the second waits. Never remove the group. |
+| `Model not found: <id>. Did you mean: …` | Free-tier model IDs rotate; the default went stale. Pick a current ID (the suggestion list, or `opencode models` catalog) and set it via the `model` input / `FORGE_MODEL` — then report it upstream so the default gets refreshed. |
 | Review fails on a fork PR (`ref not found` at checkout) | The reusable workflow checks out `head.sha` from the base repo, which lacks fork objects. Same-repo PRs only for now; fork support needs `pull_request_target` + head-repo checkout (not built yet). |
