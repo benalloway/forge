@@ -11,7 +11,7 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 |---|---|---|
 | `label` | `Forge` | Backlog label. Migrating Sandcastle repos pass `Sandcastle` until they re-label. |
 | `branch_prefix` | `forge` | Per-issue branches `<prefix>/issue-<id>`. Change only to avoid a collision. |
-| `model` | `opencode/muse-spark-1.3-contributor-free` | Any OpenCode model ID. |
+| `model` | `opencode/beam-free` | Any OpenCode model ID. |
 | `max_iterations` | `5` | Plan → execute → merge cycles per run. |
 | `delivery` | `pr` | `pr` (review PR — the safe default) or `push` (direct to base branch, for repos with green CI + branch protection). |
 | `base_branch` | `main` | Trunk the factory merges into and delivers to. Set for repos on `master`/`develop`/etc. |
@@ -26,7 +26,7 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 
 | Input | Default | When to change |
 |---|---|---|
-| `model` | `opencode/muse-spark-1.3-contributor-free` | Any OpenCode model ID. |
+| `model` | `opencode/beam-free` | Any OpenCode model ID. |
 | `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Missing file falls back to `AGENTS.md`. |
 | `prompt_file` | `.forge/prompts/pr-review-prompt.md` | Fork the prompt per repo only as a last resort — prefer improving upstream (it re-vendors via `sync-forge.sh`). |
 | `node_version` | `24` | Node for the runner only. |

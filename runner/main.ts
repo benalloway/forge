@@ -48,7 +48,7 @@ type SandboxMode = "local" | "no-sandbox" | "docker" | "podman";
 
 const SANDBOX_MODE = env("SANDBOX", "local").toLowerCase() as SandboxMode;
 
-const MODEL = env("MODEL", "opencode/muse-spark-1.3-contributor-free");
+const MODEL = env("MODEL", "opencode/beam-free");
 
 const MAX_ITERATIONS = Number.parseInt(env("MAX_ITERATIONS", "10"), 10);
 
