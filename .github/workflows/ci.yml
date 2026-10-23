@@ -18,3 +18,11 @@ jobs:
           cache-dependency-path: runner/package-lock.json
       - run: npm ci --prefix runner
       - run: npm run check --prefix runner
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - run: shellcheck scripts/*.sh runner/*.sh
+      - run: bash scripts/test-review-context.sh
