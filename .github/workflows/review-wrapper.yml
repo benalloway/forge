@@ -1,0 +1,26 @@
+name: Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: forge-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    # Upstream home of this workflow: the pin is always v1 of ourselves.
+    uses: benalloway/forge/.github/workflows/review.yml@v1
+    with:
+      # No vendored .forge/ upstream — review from the source tree.
+      # Standards fall back to AGENTS.md automatically.
+      prompt_file: runner/prompts/pr-review-prompt.md
+    secrets:
+      opencode_api_key: ${{ secrets.OPENCODE_API_KEY }}
+      gh_token: ${{ secrets.GITHUB_TOKEN }}
