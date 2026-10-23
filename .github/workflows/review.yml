@@ -94,23 +94,53 @@ jobs:
           echo "REVIEW_HEAD=$HEAD_SHA" >> "$GITHUB_ENV"
           echo "REVIEW_CONTEXT=$PWD/.forge-review-context.md" >> "$GITHUB_ENV"
           echo "REVIEW_OUTPUT=$PWD/.forge-review.md" >> "$GITHUB_ENV"
-          if [ ! -f "$REVIEW_STANDARDS" ]; then
+          mkdir -p .forge-review
+          # Resolve a repo-relative file to an absolute path the agent can
+          # read: prefer the worktree, else materialize from HEAD (robust
+          # against partial/sparse checkouts), else fail with diagnostics.
+          resolve() {
+            local rel="$1" dest="$2"
+            if [ -f "$rel" ]; then
+              echo "$PWD/$rel"
+            elif git cat-file -e "HEAD:$rel" 2>/dev/null; then
+              git show "HEAD:$rel" > "$dest"
+              echo "$PWD/$dest"
+            else
+              {
+                echo "::error::$rel not in worktree nor in HEAD."
+                echo "pwd=$PWD head=$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+                git ls-files | head -30
+              } >&2
+              return 1
+            fi
+          }
+          if out="$(resolve "$REVIEW_STANDARDS" .forge-review/standards.md)"; then
+            echo "REVIEW_STANDARDS=$out" >> "$GITHUB_ENV"
+          else
             for fallback in AGENTS.md CONTRIBUTING.md; do
-              if [ -f "$fallback" ]; then
-                echo "REVIEW_STANDARDS=$PWD/$fallback" >> "$GITHUB_ENV"
+              if out="$(resolve "$fallback" .forge-review/standards.md 2>/dev/null)"; then
+                echo "REVIEW_STANDARDS=$out" >> "$GITHUB_ENV"
                 break
               fi
             done
-          else
-            echo "REVIEW_STANDARDS=$PWD/$REVIEW_STANDARDS" >> "$GITHUB_ENV"
           fi
-          if [ ! -f "$REVIEW_PROMPT" ]; then
+          grep -q '^REVIEW_STANDARDS=' "$GITHUB_ENV" || {
+            echo "::error::no standards file (tried $REVIEW_STANDARDS, AGENTS.md, CONTRIBUTING.md)."
+            exit 1
+          }
+          if out="$(resolve "$REVIEW_PROMPT" .forge-review/prompt.md)"; then
+            echo "REVIEW_PROMPT=$out" >> "$GITHUB_ENV"
+          else
             echo "::error::prompt $REVIEW_PROMPT missing — re-run bash scripts/sync-forge.sh to re-vendor."
             exit 1
           fi
 
       - name: Run PR review agent
         run: |
+          : "${REVIEW_PROMPT:?review prompt not resolved}"
+          : "${REVIEW_STANDARDS:?standards not resolved}"
+          : "${REVIEW_CONTEXT:?context not built}"
+          : "${REVIEW_OUTPUT:?output path not set}"
           opencode run --auto \
             --model "$FORGE_MODEL" \
             --title "PR review #${{ github.event.pull_request.number }}" \
