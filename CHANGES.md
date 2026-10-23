@@ -4,6 +4,22 @@ Newest first. One entry per behavior change: Change / Consumer impact / Rollback
 
 ---
 
+## v1 (unreleased) — Review model fallback
+
+Change: `review.yml` gains additive `fallback_model` input (default
+`opencode/deepseek-v4.1-flash-free`, single-sourced as `review_fallback_model`
+in `runner/models.json`). The agent step tries the primary once, then retries
+with the fallback — paid primaries fail on exhausted API budgets (`Policy
+budget exceeded`, observed on the first Haiku runs) and rotating IDs (`Model
+not found`, observed minutes later). Fixes #7.
+
+Consumer impact: None required — thin wrappers inherit the new default
+through `@v1` (they don't pin `model`).
+
+Rollback: Set `fallback_model` equal to `model`, or re-pin to previous `v1`.
+
+---
+
 ## v1 (unreleased) — Single-source models + review upsert
 
 Change: Model defaults live in `runner/models.json`; `scripts/sync-models.mjs`

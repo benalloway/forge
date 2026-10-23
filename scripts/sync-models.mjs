@@ -22,7 +22,10 @@ const KEYS = [
   "review_model",
   "merge_model",
 ];
-for (const k of KEYS) {
+// Extra single-sourced defaults that live in models.json but are NOT
+// forge.yml inputs (used by the review workflow / docs only).
+const EXTRA_KEYS = ["review_fallback_model"];
+for (const k of [...KEYS, ...EXTRA_KEYS]) {
   if (typeof models[k] !== "string" || models[k].length === 0) {
     console.error(`models.json: missing or empty "${k}"`);
     process.exit(1);
@@ -79,6 +82,11 @@ const BLOCKS = {
       models.review_model,
       "Any OpenCode model ID. PR review is a single careful read — cheap + reliable beats free here (~1¢/review).",
     ),
+    blockRow(
+      "fallback_model",
+      models.review_fallback_model,
+      "Free-tier retry when the primary fails (budget exhausted, model retired, transient 5xx). Same free default as the factory global.",
+    ),
   ].join("\n"),
 };
 
@@ -102,7 +110,7 @@ function syncDocs(path) {
 
 const jobs = [
   { path: join(root, ".github", "workflows", "forge.yml"), fn: () => syncYaml(join(root, ".github", "workflows", "forge.yml"), KEYS.map((k) => [k, k])) },
-  { path: join(root, ".github", "workflows", "review.yml"), fn: () => syncYaml(join(root, ".github", "workflows", "review.yml"), [["model", "review_model"]]) },
+  { path: join(root, ".github", "workflows", "review.yml"), fn: () => syncYaml(join(root, ".github", "workflows", "review.yml"), [["model", "review_model"], ["fallback_model", "review_fallback_model"]]) },
   { path: join(root, "docs", "CONFIGURATION.md"), fn: () => syncDocs(join(root, "docs", "CONFIGURATION.md")) },
 ];
 

@@ -4,5 +4,6 @@
   "plan_model": "opencode-go/muse-spark-1.3-contributor",
   "implement_model": "opencode/deepseek-v4.1-flash-free",
   "review_model": "opencode/claude-haiku-5-5",
+  "review_fallback_model": "opencode/deepseek-v4.1-flash-free",
   "merge_model": "opencode/deepseek-v4.1-flash-free"
 }

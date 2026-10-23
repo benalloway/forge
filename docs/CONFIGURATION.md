@@ -34,6 +34,7 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 |---|---|---|
 <!-- MODELS:review:BEGIN -->
 | `model` | `opencode/claude-haiku-5-5` | Any OpenCode model ID. PR review is a single careful read — cheap + reliable beats free here (~1¢/review). |
+| `fallback_model` | `opencode/deepseek-v4.1-flash-free` | Free-tier retry when the primary fails (budget exhausted, model retired, transient 5xx). Same free default as the factory global. |
 <!-- MODELS:review:END -->
 | `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Missing file falls back to `AGENTS.md`. |
 | `prompt_file` | `.forge/prompts/pr-review-prompt.md` | Fork the prompt per repo only as a last resort — prefer improving upstream (it re-vendors via `sync-forge.sh`). |
