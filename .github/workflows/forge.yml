@@ -36,7 +36,7 @@ on:
       review_model:
         description: "In-branch reviewer model (blank inherits model)"
         required: false
-        default: "opencode/claude-haiku-5-5"
+        default: "opencode-go/claude-haiku-5-5"
         type: string
       merge_model:
         description: "Merger model (blank inherits model)"

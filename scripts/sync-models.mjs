@@ -73,14 +73,14 @@ const BLOCKS = {
       "Planner (reasons once per cycle). Contributor tier: prompts may train future models, geo-limited — swap for a zero-retention model in private repos. Same `OPENCODE_API_KEY` authorizes it (same Console account).",
     ),
     blockRow("implement_model", models.implement_model, "Implementer (dominates cost)."),
-    blockRow("review_model", models.review_model, "In-branch reviewer ($0.10/M in)."),
+    blockRow("review_model", models.review_model, "In-branch reviewer (Go subscription; same Haiku, billed to Go instead of the metered Zen budget)."),
     blockRow("merge_model", models.merge_model, "Merger."),
   ].join("\n"),
   review: [
     blockRow(
       "model",
       models.review_model,
-      "Any OpenCode model ID. PR review is a single careful read — cheap + reliable beats free here (~1¢/review).",
+      "PR reviewer (Go subscription). Same Haiku character as before; bypasses the exhausted Zen metered budget (verified live with the repo secret key). Fallback stays free.",
     ),
     blockRow(
       "fallback_model",

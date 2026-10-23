@@ -4,6 +4,23 @@ Newest first. One entry per behavior change: Change / Consumer impact / Rollback
 
 ---
 
+## v1 (unreleased) — Reviewer moves to Go subscription
+
+Change: `review_model` default `opencode/claude-haiku-5-5` →
+`opencode-go/claude-haiku-5-5` (both the PR-review workflow and the factory
+in-branch reviewer). Same model, billed to the Go subscription: the Zen
+metered budget is exhausted (`Policy budget exceeded` on every Haiku run)
+and the free fallback rescued nothing but green checks without judgment.
+Verified live: trivial prompts succeed via Go locally AND with the repo
+`OPENCODE_API_KEY` secret key. Fallback stays free DeepSeek. Privacy note:
+Go contributor tier may train on prompts — accepted for public repos (#3).
+
+Consumer impact: None required — new default flows through `@v1`.
+
+Rollback: Set `model`/`review_model` back to the Zen ID, or re-pin v1.
+
+---
+
 ## v1 (unreleased) — Review model fallback
 
 Change: `review.yml` gains additive `fallback_model` input (default
