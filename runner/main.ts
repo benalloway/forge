@@ -16,6 +16,7 @@
 
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
@@ -48,26 +49,53 @@ type SandboxMode = "local" | "no-sandbox" | "docker" | "podman";
 
 const SANDBOX_MODE = env("SANDBOX", "local").toLowerCase() as SandboxMode;
 
-const MODEL = env("MODEL", "opencode/deepseek-v4.1-flash-free");
+/**
+ * Model lineup, single-sourced from models.json (same dir). Edit the JSON,
+ * then run `node scripts/sync-models.mjs` to propagate to the reusable
+ * workflows and docs — CI fails if they drift.
+ */
+interface ModelDefaults {
+  model: string;
+  plan_model: string;
+  implement_model: string;
+  review_model: string;
+  merge_model: string;
+}
+const DEFAULTS = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL("./models.json", import.meta.url)),
+    "utf8",
+  ),
+) as ModelDefaults;
+for (const k of [
+  "model",
+  "plan_model",
+  "implement_model",
+  "review_model",
+  "merge_model",
+] as const) {
+  if (typeof DEFAULTS[k] !== "string" || DEFAULTS[k].length === 0) {
+    throw new Error(`models.json: missing or empty "${k}"`);
+  }
+}
+
+const MODEL = env("MODEL", DEFAULTS.model);
 
 /**
- * Per-role models, pinned to the recommended lineup. Planner reasons once
- * per cycle (quality first: flagship reasoning at flash prices); implementer
- * dominates cost (cheap + strong tools, zero-retention free tier);
- * reviewer reads once (cheap + careful); merger reconciles branches.
- * Override any role via its FORGE_* env (local) or workflow input (Actions).
- * Set a role to "" to inherit MODEL; set MODEL to move all inheritors.
+ * Per-role models. Planner reasons once per cycle (quality first: flagship
+ * reasoning at flash prices); implementer dominates cost (cheap + strong
+ * tools, zero-retention free tier); reviewer reads once (cheap + careful);
+ * merger reconciles branches. Override any role via its FORGE_* env (local)
+ * or workflow input (Actions). Set a role to "" to inherit MODEL; set MODEL
+ * to move all inheritors.
  * Privacy note: the planner default is a contributor-tier model — prompts
  * may train future models. Swap it for a zero-retention model when working
  * in private repos (see docs/CONFIGURATION.md).
  */
-const PLAN_MODEL = env("PLAN_MODEL", "opencode-go/muse-spark-1.3-contributor");
-const IMPLEMENT_MODEL = env(
-  "IMPLEMENT_MODEL",
-  "opencode/deepseek-v4.1-flash-free",
-);
-const REVIEW_MODEL = env("REVIEW_MODEL", "opencode/claude-haiku-5-5");
-const MERGE_MODEL = env("MERGE_MODEL", "opencode/deepseek-v4.1-flash-free");
+const PLAN_MODEL = env("PLAN_MODEL", DEFAULTS.plan_model);
+const IMPLEMENT_MODEL = env("IMPLEMENT_MODEL", DEFAULTS.implement_model);
+const REVIEW_MODEL = env("REVIEW_MODEL", DEFAULTS.review_model);
+const MERGE_MODEL = env("MERGE_MODEL", DEFAULTS.merge_model);
 
 /** Blank role value inherits the global MODEL. */
 const roleModel = (v: string): string => (v === "" ? MODEL : v);

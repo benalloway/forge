@@ -11,11 +11,13 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 |---|---|---|
 | `label` | `Forge` | Backlog label. Migrating Sandcastle repos pass `Sandcastle` until they re-label. |
 | `branch_prefix` | `forge` | Per-issue branches `<prefix>/issue-<id>`. Change only to avoid a collision. |
+<!-- MODELS:factory:BEGIN -->
 | `model` | `opencode/deepseek-v4.1-flash-free` | Global default; blank role values inherit it. Free tier, zero-retention — free IDs rotate, see Troubleshooting in INSTALL.md. |
 | `plan_model` | `opencode-go/muse-spark-1.3-contributor` | Planner (reasons once per cycle). Contributor tier: prompts may train future models, geo-limited — swap for a zero-retention model in private repos. Same `OPENCODE_API_KEY` authorizes it (same Console account). |
 | `implement_model` | `opencode/deepseek-v4.1-flash-free` | Implementer (dominates cost). |
 | `review_model` | `opencode/claude-haiku-5-5` | In-branch reviewer ($0.10/M in). |
 | `merge_model` | `opencode/deepseek-v4.1-flash-free` | Merger. |
+<!-- MODELS:factory:END -->
 | `max_iterations` | `5` | Plan → execute → merge cycles per run. |
 | `delivery` | `pr` | `pr` (review PR — the safe default) or `push` (direct to base branch, for repos with green CI + branch protection). |
 | `base_branch` | `main` | Trunk the factory merges into and delivers to. Set for repos on `master`/`develop`/etc. |
@@ -30,7 +32,10 @@ the reusable workflow stay in sync). During migration from Sandcastle,
 
 | Input | Default | When to change |
 |---|---|---|
+<!-- MODELS:review:BEGIN -->
 | `model` | `opencode/claude-haiku-5-5` | Any OpenCode model ID. PR review is a single careful read — cheap + reliable beats free here (~1¢/review). |
+| `fallback_model` | `opencode/deepseek-v4.1-flash-free` | Free-tier retry when the primary fails (budget exhausted, model retired, transient 5xx). Same free default as the factory global. |
+<!-- MODELS:review:END -->
 | `standards_file` | `.sandcastle/CODING_STANDARDS.md` | Reviewer standards file. Missing file falls back to `AGENTS.md`. |
 | `prompt_file` | `.forge/prompts/pr-review-prompt.md` | Fork the prompt per repo only as a last resort — prefer improving upstream (it re-vendors via `sync-forge.sh`). |
 | `node_version` | `24` | Node for the runner only. |

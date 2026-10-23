@@ -13,6 +13,11 @@ on:
         required: false
         default: "opencode/claude-haiku-5-5"
         type: string
+      fallback_model:
+        description: "Retry model when the primary fails (budget, retirement, transient)"
+        required: false
+        default: "opencode/deepseek-v4.1-flash-free"
+        type: string
       standards_file:
         description: "Reviewer standards file in the consumer repo"
         required: false
@@ -45,7 +50,7 @@ jobs:
   review:
     name: review (read-only)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       OPENCODE_API_KEY: ${{ secrets.opencode_api_key }}
       # Deliberately NO GH_TOKEN here: the agent must not call the GitHub
@@ -55,6 +60,7 @@ jobs:
       # waste minutes, never land code.
       OPENCODE_PERMISSION: '{"*": "allow"}'
       FORGE_MODEL: ${{ inputs.model }}
+      FORGE_FALLBACK_MODEL: ${{ inputs.fallback_model }}
       REVIEW_STANDARDS: ${{ inputs.standards_file }}
       REVIEW_PROMPT: ${{ inputs.prompt_file }}
     steps:
@@ -91,28 +97,56 @@ jobs:
         # greedily consumes any positional after --file as an attachment
         # path — verified against the pinned CLI. Any other order fails with
         # `File not found: <the message>`.
+        # Primary → fallback: paid primaries fail on exhausted API budgets
+        # ("Policy budget exceeded") or retired IDs ("Model not found"); the
+        # free fallback keeps the check green while the lineup is fixed in
+        # models.json. Both attempts are visible in the step log.
         run: |
           : "${REVIEW_PROMPT:?review prompt not resolved}"
           : "${REVIEW_STANDARDS:?standards not resolved}"
           : "${REVIEW_CONTEXT:?context not built}"
           : "${REVIEW_OUTPUT:?output path not set}"
-          opencode run --auto \
-            --model "$FORGE_MODEL" \
-            --title "PR review #${{ github.event.pull_request.number }}" \
-            "Review the pull request per the attached prompt file. Context: $REVIEW_CONTEXT. Standards: $REVIEW_STANDARDS. Write findings to: $REVIEW_OUTPUT." \
-            --file "$REVIEW_PROMPT"
+          : "${FORGE_FALLBACK_MODEL:?fallback model not set}"
+          run_review() {
+            opencode run --auto \
+              --model "$1" \
+              --title "PR review #${{ github.event.pull_request.number }}" \
+              "Review the pull request per the attached prompt file. Context: $REVIEW_CONTEXT. Standards: $REVIEW_STANDARDS. Write findings to: $REVIEW_OUTPUT." \
+              --file "$REVIEW_PROMPT"
+          }
+          if run_review "$FORGE_MODEL"; then
+            echo "Review succeeded with primary model $FORGE_MODEL."
+          else
+            rc=$?
+            echo "::warning::Primary review model $FORGE_MODEL failed (rc=$rc); retrying with fallback $FORGE_FALLBACK_MODEL."
+            rm -f "$REVIEW_OUTPUT"
+            run_review "$FORGE_FALLBACK_MODEL"
+          fi
 
       - name: Post review comment
         if: always()
         env:
           GH_TOKEN: ${{ secrets.gh_token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          if [ -s "$REVIEW_OUTPUT" ]; then
-            gh pr comment "$PR_NUMBER" --body-file "$REVIEW_OUTPUT"
-          else
+          if [ ! -s "$REVIEW_OUTPUT" ]; then
             echo "::error::agent produced no review output."
             exit 1
+          fi
+          # Upsert: reruns update the previous review comment in place
+          # instead of stacking duplicates. Marker is added here (not by
+          # the agent) so old outputs without it simply post anew.
+          MARKER="<!-- forge-review -->"
+          BODY="$(mktemp)"
+          { echo "$MARKER"; echo; cat "$REVIEW_OUTPUT"; } > "$BODY"
+          EXISTING="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '[.[] | select(.body | contains("<!-- forge-review -->")) | .id] | last // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh api "repos/$REPO/issues/comments/$EXISTING" -X PATCH -F "body=@$BODY"
+            echo "Updated review comment $EXISTING."
+          else
+            gh pr comment "$PR_NUMBER" --body-file "$BODY"
           fi
 
       - name: Upload review artifacts

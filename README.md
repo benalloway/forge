@@ -46,6 +46,8 @@ Details: [`docs/INSTALL.md`](./docs/INSTALL.md) (agent-executable install),
 
 - `runner/main.ts` — the factory loop (plan → execute+review → merge).
   Driven entirely by `FORGE_*` env (see `docs/CONFIGURATION.md`).
+- `runner/models.json` — single source of truth for model defaults;
+  `scripts/sync-models.mjs` propagates to workflows + docs (`--check` in CI).
 - `runner/prompts/` — planner / implementer / reviewer / merger prompts.
   Stack-agnostic: agents discover each repo's verify commands at runtime
   instead of assuming `npm` scripts.

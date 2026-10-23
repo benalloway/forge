@@ -4,6 +4,38 @@ Newest first. One entry per behavior change: Change / Consumer impact / Rollback
 
 ---
 
+## v1 (unreleased) — Review model fallback
+
+Change: `review.yml` gains additive `fallback_model` input (default
+`opencode/deepseek-v4.1-flash-free`, single-sourced as `review_fallback_model`
+in `runner/models.json`). The agent step tries the primary once, then retries
+with the fallback — paid primaries fail on exhausted API budgets (`Policy
+budget exceeded`, observed on the first Haiku runs) and rotating IDs (`Model
+not found`, observed minutes later). Fixes #7.
+
+Consumer impact: None required — thin wrappers inherit the new default
+through `@v1` (they don't pin `model`).
+
+Rollback: Set `fallback_model` equal to `model`, or re-pin to previous `v1`.
+
+---
+
+## v1 (unreleased) — Single-source models + review upsert
+
+Change: Model defaults live in `runner/models.json`; `scripts/sync-models.mjs`
+propagates to workflow inputs + docs (`--check` in CI fails on drift, so a
+review-model change is one edit). Review comments upsert in place (reruns
+update instead of stacking), agent timeout 30→60m for free-model queues.
+Fixed while here: template-literal `[\s\S]` pitfall documented in the script.
+
+Consumer impact: None required — review upsert is live on release;
+`models.json` re-vendors with the next `sync-forge.sh`.
+
+Rollback: Re-pin `scripts/forge-version.txt` to the previous tag and re-run
+`bash scripts/sync-forge.sh`.
+
+---
+
 ## v1 (unreleased) — Per-role models
 
 Change: Factory roles now take separate models (`plan_model`,
