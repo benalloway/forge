@@ -4,6 +4,29 @@ Newest first. One entry per behavior change: Change / Consumer impact / Rollback
 
 ---
 
+## v1 (unreleased) — Per-role models
+
+Change: Factory roles now take separate models (`plan_model`,
+`implement_model`, `review_model`, `merge_model` inputs / `FORGE_*_MODEL`
+env), each defaulting to a recommended lineup entry; blank inherits the
+global `model`. Defaults refreshed after the `muse-spark-1.3-contributor-free`
+retirement broke all runs: global `opencode/deepseek-v4.1-flash-free`
+(free, zero-retention), planner `opencode-go/muse-spark-1.3-contributor`
+(flagship reasoning at $0.10/M — contributor tier trains on prompts, swap
+for private repos), reviewer `opencode/claude-haiku-5-5` (PR review default
+too). Same `OPENCODE_API_KEY` authorizes `opencode-go/*` (verified in the
+pinned CLI) — no new secret needed.
+
+Consumer impact: Cloud runs pick up the lineup automatically (no wrapper
+changes). Re-run `bash scripts/sync-forge.sh` so local runs match.
+`FORGE_MODEL`-only setups now affect only roles left blank (all four ship
+pinned — set all five to move everything).
+
+Rollback: Set the five model inputs/envs back to a single previous ID, or
+re-pin `scripts/forge-version.txt` and re-run `bash scripts/sync-forge.sh`.
+
+---
+
 ## v1 (unreleased) — PR review + canonical labels
 
 Change: New reusable workflow `.github/workflows/review.yml`: read-only

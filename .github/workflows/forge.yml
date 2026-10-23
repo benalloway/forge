@@ -19,9 +19,29 @@ on:
         default: "forge"
         type: string
       model:
-        description: "OpenCode model ID"
+        description: "OpenCode model ID (global default; blank role values inherit it)"
         required: false
-        default: "opencode/beam-free"
+        default: "opencode/deepseek-v4.1-flash-free"
+        type: string
+      plan_model:
+        description: "Planner model (reasons once per cycle; blank inherits model)"
+        required: false
+        default: "opencode-go/muse-spark-1.3-contributor"
+        type: string
+      implement_model:
+        description: "Implementer model (dominates cost; blank inherits model)"
+        required: false
+        default: "opencode/deepseek-v4.1-flash-free"
+        type: string
+      review_model:
+        description: "In-branch reviewer model (blank inherits model)"
+        required: false
+        default: "opencode/claude-haiku-5-5"
+        type: string
+      merge_model:
+        description: "Merger model (blank inherits model)"
+        required: false
+        default: "opencode/deepseek-v4.1-flash-free"
         type: string
       max_iterations:
         description: "Maximum plan -> execute -> merge cycles"
@@ -98,6 +118,10 @@ jobs:
       FORGE_FORWARD_ENV: "ANTHROPIC_API_KEY,OPENAI_API_KEY,GEMINI_API_KEY"
       FORGE_SANDBOX: local
       FORGE_MODEL: ${{ inputs.model }}
+      FORGE_PLAN_MODEL: ${{ inputs.plan_model }}
+      FORGE_IMPLEMENT_MODEL: ${{ inputs.implement_model }}
+      FORGE_REVIEW_MODEL: ${{ inputs.review_model }}
+      FORGE_MERGE_MODEL: ${{ inputs.merge_model }}
       FORGE_MAX_ITERATIONS: ${{ inputs.max_iterations }}
       FORGE_LABEL: ${{ inputs.label }}
       FORGE_BRANCH_PREFIX: ${{ inputs.branch_prefix }}

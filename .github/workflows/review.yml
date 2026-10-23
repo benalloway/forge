@@ -11,7 +11,7 @@ on:
       model:
         description: "OpenCode model ID"
         required: false
-        default: "opencode/beam-free"
+        default: "opencode/claude-haiku-5-5"
         type: string
       standards_file:
         description: "Reviewer standards file in the consumer repo"
