@@ -48,7 +48,29 @@ type SandboxMode = "local" | "no-sandbox" | "docker" | "podman";
 
 const SANDBOX_MODE = env("SANDBOX", "local").toLowerCase() as SandboxMode;
 
-const MODEL = env("MODEL", "opencode/beam-free");
+const MODEL = env("MODEL", "opencode/deepseek-v4.1-flash-free");
+
+/**
+ * Per-role models, pinned to the recommended lineup. Planner reasons once
+ * per cycle (quality first: flagship reasoning at flash prices); implementer
+ * dominates cost (cheap + strong tools, zero-retention free tier);
+ * reviewer reads once (cheap + careful); merger reconciles branches.
+ * Override any role via its FORGE_* env (local) or workflow input (Actions).
+ * Set a role to "" to inherit MODEL; set MODEL to move all inheritors.
+ * Privacy note: the planner default is a contributor-tier model — prompts
+ * may train future models. Swap it for a zero-retention model when working
+ * in private repos (see docs/CONFIGURATION.md).
+ */
+const PLAN_MODEL = env("PLAN_MODEL", "opencode-go/muse-spark-1.3-contributor");
+const IMPLEMENT_MODEL = env(
+  "IMPLEMENT_MODEL",
+  "opencode/deepseek-v4.1-flash-free",
+);
+const REVIEW_MODEL = env("REVIEW_MODEL", "opencode/claude-haiku-5-5");
+const MERGE_MODEL = env("MERGE_MODEL", "opencode/deepseek-v4.1-flash-free");
+
+/** Blank role value inherits the global MODEL. */
+const roleModel = (v: string): string => (v === "" ? MODEL : v);
 
 const MAX_ITERATIONS = Number.parseInt(env("MAX_ITERATIONS", "10"), 10);
 
@@ -224,7 +246,7 @@ const headHooks: sandcastle.SandboxHooks = isContainerSandbox
 const copyToWorktree = ["node_modules"];
 
 console.log(
-  `Forge starting (sandbox=${SANDBOX_MODE}, model=${MODEL}, maxIterations=${MAX_ITERATIONS}, implementMax=${IMPLEMENT_MAX_ITERATIONS}, label=${LABEL}, branchPrefix=${BRANCH_PREFIX})`,
+  `Forge starting (sandbox=${SANDBOX_MODE}, model=${MODEL}, plan=${roleModel(PLAN_MODEL)}, implement=${roleModel(IMPLEMENT_MODEL)}, review=${roleModel(REVIEW_MODEL)}, merge=${roleModel(MERGE_MODEL)}, maxIterations=${MAX_ITERATIONS}, implementMax=${IMPLEMENT_MAX_ITERATIONS}, label=${LABEL}, branchPrefix=${BRANCH_PREFIX})`,
 );
 
 // ---------------------------------------------------------------------------
@@ -247,7 +269,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: createSandboxProvider(),
     name: "planner",
     maxIterations: 1,
-    agent: createAgent(),
+    agent: createAgent(roleModel(PLAN_MODEL)),
     promptFile: promptFile("plan-prompt.md"),
     promptArgs: {
       LABEL,
@@ -291,7 +313,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: `implementer-${issue.id}`,
           maxIterations: IMPLEMENT_MAX_ITERATIONS,
-          agent: createAgent(),
+          agent: createAgent(roleModel(IMPLEMENT_MODEL)),
           promptFile: promptFile("implement-prompt.md"),
           promptArgs: {
             TASK_ID: issue.id,
@@ -304,7 +326,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: `reviewer-${issue.id}`,
             maxIterations: 1,
-            agent: createAgent(),
+            agent: createAgent(roleModel(REVIEW_MODEL)),
             promptFile: promptFile("review-prompt.md"),
             promptArgs: {
               BRANCH: issue.branch,
@@ -369,7 +391,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: createSandboxProvider(),
     name: "merger",
     maxIterations: 1,
-    agent: createAgent(),
+    agent: createAgent(roleModel(MERGE_MODEL)),
     promptFile: promptFile("merge-prompt.md"),
     promptArgs: {
       BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
