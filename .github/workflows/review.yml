@@ -45,7 +45,7 @@ jobs:
   review:
     name: review (read-only)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       OPENCODE_API_KEY: ${{ secrets.opencode_api_key }}
       # Deliberately NO GH_TOKEN here: the agent must not call the GitHub
@@ -107,12 +107,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.gh_token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          if [ -s "$REVIEW_OUTPUT" ]; then
-            gh pr comment "$PR_NUMBER" --body-file "$REVIEW_OUTPUT"
-          else
+          if [ ! -s "$REVIEW_OUTPUT" ]; then
             echo "::error::agent produced no review output."
             exit 1
+          fi
+          # Upsert: reruns update the previous review comment in place
+          # instead of stacking duplicates. Marker is added here (not by
+          # the agent) so old outputs without it simply post anew.
+          MARKER="<!-- forge-review -->"
+          BODY="$(mktemp)"
+          { echo "$MARKER"; echo; cat "$REVIEW_OUTPUT"; } > "$BODY"
+          EXISTING="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '[.[] | select(.body | contains("<!-- forge-review -->")) | .id] | last // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh api "repos/$REPO/issues/comments/$EXISTING" -X PATCH -F "body=@$BODY"
+            echo "Updated review comment $EXISTING."
+          else
+            gh pr comment "$PR_NUMBER" --body-file "$BODY"
           fi
 
       - name: Upload review artifacts
